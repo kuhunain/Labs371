@@ -1,0 +1,89 @@
+// singular parking lot car detection
+// detects if car has entered or exited a parking spot
+module car_detector (
+    input  logic clk, reset,
+    input  logic outer, inner,
+    output logic enter, exit);
+
+
+	typedef enum logic [2:0] {
+		NO_CAR    = 2'b00, // no car in lot
+		OUTER = 2'b10, // outer signal 1, so car entering lot
+		CAR  = 2'b11, // outer & inner 1, so car actively in lot
+		INNER    = 2'b01, // only inner block
+	} ps, ns;
+	
+	always_ff @(posedge clk) begin
+		if (reset)
+			ps <= NO_CAR;
+	  else
+			ps <= ns;
+	end
+
+ 
+ always_comb begin
+	  next_state = current_state;
+	  
+	  case (current_state)
+			IDLE: begin
+				 if (outer && !inner)
+					  next_state = OUT_ONLY;
+				 else if (!outer && inner)
+					  next_state = IN_ONLY;
+			end
+			
+			OUT_ONLY: begin
+				 if (outer && inner)
+					  next_state = BOTH;
+				 else if (!outer && !inner)
+					  next_state = IDLE;
+			end
+			
+			IN_ONLY: begin
+				 if (outer && inner)
+					  next_state = BOTH;
+				 else if (!outer && !inner)
+					  next_state = IDLE;
+			end
+			
+			BOTH: begin
+				 if (!outer && inner)
+					  next_state = ENTERING;
+				 else if (outer && !inner)
+					  next_state = EXITING;
+				 else if (!outer && !inner)
+					  next_state = IDLE; // Invalid sequence
+			end
+			
+			ENTERING: begin
+				 if (!outer && !inner)
+					  next_state = IDLE;
+				 else if (outer && inner) // Return to BOTH if sensors reactivate
+					  next_state = BOTH;
+			end
+			
+			EXITING: begin
+				 if (!outer && !inner)
+					  next_state = IDLE;
+				 else if (outer && inner) // Return to BOTH if sensors reactivate
+					  next_state = BOTH;
+			end
+			
+			default: next_state = IDLE;
+	  endcase
+ end
+
+ // Output logic
+ always_comb begin
+	  // Default outputs
+	  enter = 1'b0;
+	  exit = 1'b0;
+	  
+	  // Assert enter/exit signals for one clock cycle when transitioning from ENTERING/EXITING to IDLE
+	  if (current_state == ENTERING && next_state == IDLE)
+			enter = 1'b1;
+	  else if (current_state == EXITING && next_state == IDLE)
+			exit = 1'b1;
+ end
+
+endmodule

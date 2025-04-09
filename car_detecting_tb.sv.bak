@@ -1,0 +1,74 @@
+module car_detecting_tb;
+    logic clk, reset;
+    logic outer, inner;
+    logic enter, exit;
+
+    // Instantiate DUT
+    car_detecting dut (
+        .clk(clk),
+        .reset(reset),
+        .outer(outer),
+        .inner(inner),
+        .enter(enter),
+        .exit(exit)
+    );
+
+    // Clock generator
+    parameter CLOCK_PERIOD = 20;
+    initial begin
+        clk = 0;
+        forever #(CLOCK_PERIOD/2) clk = ~clk;
+    end
+
+    // Stimulus
+    initial begin
+        $display("Starting car_detecting testbench...");
+        
+        // Init values
+        outer = 0;
+        inner = 0;
+        reset = 1;
+        @(posedge clk);
+        reset = 0;
+
+        // === Simulate car entering ===
+        // Sequence: 00 → 10 → 11 → 01 → 00
+        $display("Simulating car entering...");
+        set_sensors(0, 0); @(posedge clk);
+        set_sensors(1, 0); @(posedge clk);
+        set_sensors(1, 1); @(posedge clk);
+        set_sensors(0, 1); @(posedge clk);
+        set_sensors(0, 0); @(posedge clk); // enter should pulse here
+        @(posedge clk);
+
+        // === Simulate car exiting ===
+        // Sequence: 00 → 01 → 11 → 10 → 00
+        $display("Simulating car exiting...");
+        set_sensors(0, 0); @(posedge clk);
+        set_sensors(0, 1); @(posedge clk);
+        set_sensors(1, 1); @(posedge clk);
+        set_sensors(1, 0); @(posedge clk);
+        set_sensors(0, 0); @(posedge clk); // exit should pulse here
+        @(posedge clk);
+
+        // === Invalid sequence (pedestrian) ===
+        // Should not trigger enter/exit
+        $display("Simulating invalid sequence...");
+        set_sensors(1, 0); @(posedge clk);
+        set_sensors(0, 0); @(posedge clk);
+        set_sensors(0, 1); @(posedge clk);
+        set_sensors(0, 0); @(posedge clk);
+        @(posedge clk);
+
+        $display("Testbench complete.");
+        $stop;
+    end
+
+    // Task to make sensor control easier
+    task set_sensors(input logic o, input logic i);
+        begin
+            outer = o;
+            inner = i;
+        end
+    endtask
+endmodule
